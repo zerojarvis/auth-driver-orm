@@ -15,164 +15,85 @@ class Model_Auth_User extends ORM {
 		'roles'       => array('model' => 'role', 'through' => 'roles_users'),
 	);
 
-	// Validation rules
-	protected $_rules = array(
-		'username' => array(
-			'not_empty'  => NULL,
-			'min_length' => array(4),
-			'max_length' => array(32),
-			'regex'      => array('/^[-\pL\pN_.]++$/uD'),
-		),
-		'password' => array(
-			'not_empty'  => NULL,
-			'min_length' => array(5),
-			'max_length' => array(42),
-		),
-		'password_confirm' => array(
-			'matches'    => array('password'),
-		),
-		'email' => array(
-			'not_empty'  => NULL,
-			'min_length' => array(4),
-			'max_length' => array(127),
-			'email'      => NULL,
-		),
-	);
-
-	// Validation callbacks
-	protected $_callbacks = array(
-		'username' => array('username_available'),
-		'email' => array('email_available'),
-	);
-
-	// Field labels
-	protected $_labels = array(
-		'username'         => 'username',
-		'email'            => 'email address',
-		'password'         => 'password',
-		'password_confirm' => 'password confirmation',
-	);
-
-	// Columns to ignore
-	protected $_ignored_columns = array('password_confirm');
-
-	/**
-	 * Validates login information from an array, and optionally redirects
-	 * after a successful login.
-	 *
-	 * @param   array    values to check
-	 * @param   string   URI or URL to redirect to
-	 * @return  boolean
-	 */
-	public function login(array & $array, $redirect = FALSE)
+	public function rules()
 	{
-		$fieldname = $this->unique_key($array['username']);
-		$array = Validate::factory($array)
-			->label('username', $this->_labels[$fieldname])
-			->label('password', $this->_labels['password'])
-			->filter(TRUE, 'trim')
-			->rules('username', $this->_rules[$fieldname])
-			->rules('password', $this->_rules['password']);
-
-		// Get the remember login option
-		$remember = isset($array['remember']);
-
-		// Login starts out invalid
-		$status = FALSE;
-
-		if ($array->check())
-		{
-			// Attempt to load the user
-			$this->where($fieldname, '=', $array['username'])->find();
-
-			if ($this->loaded() AND Auth::instance()->login($this, $array['password'], $remember))
-			{
-				if (is_string($redirect))
-				{
-					// Redirect after a successful login
-					Request::instance()->redirect($redirect);
-				}
-
-				// Login is successful
-				$status = TRUE;
-			}
-			else
-			{
-				$array->error('username', 'invalid');
-			}
-		}
-
-		return $status;
+		return array(
+			'username' => array(
+				array('not_empty'),
+				array('min_length', array(':value', 4)),
+				array('max_length', array(':value', 32)),
+				array('regex', array(':value', '/^[-\pL\pN_.]++$/uD')),
+				array(array($this, 'username_available'), array(':validation', ':field')),
+			),
+			'password' => array(
+				array('not_empty'),
+				array('min_length', array(':value', 5)),
+				array('max_length', array(':value', 42)),
+			),
+			'email' => array(
+				array('not_empty'),
+				array('min_length', array(':value', 4)),
+				array('max_length', array(':value', 127)),
+				array('email'),
+				array(array($this, 'email_available'), array(':validation', ':field')),
+			),
+		);
 	}
 
-	/**
-	 * Validates an array for a matching password and password_confirm field,
-	 * and optionally redirects after a successful save.
-	 *
-	 * @param   array    values to check
-	 * @param   string   URI or URL to redirect to
-	 * @return  boolean
-	 */
-	public function change_password(array & $array, $redirect = FALSE)
+	public function filters()
 	{
-		$array = Validate::factory($array)
-			->label('password', $this->_labels['password'])
-			->label('password_confirm', $this->_labels['password_confirm'])
-			->filter(TRUE, 'trim')
-			->rules('password', $this->_rules['password'])
-			->rules('password_confirm', $this->_rules['password_confirm']);
+		return array(
+			'password' => array('Model_User::hash_password' => array()),
+		);
+	}
 
-		if ($status = $array->check())
-		{
-			// Change the password
-			$this->password = $array['password'];
+	public static function hash_password($password)
+	{
+		return Auth::instance()->hash($password);
+	}
 
-			if ($status = $this->save() AND is_string($redirect))
-			{
-				// Redirect to the success page
-				Request::instance()->redirect($redirect);
-			}
-		}
-
-		return $status;
+	public function labels()
+	{
+		return array(
+			'username'         => 'username',
+			'email'            => 'email address',
+			'password'         => 'password',
+		);
 	}
 
 	/**
 	 * Complete the login for a user by incrementing the logins and saving login timestamp
 	 *
-	 * @return void 
+	 * @return void
 	 */
 	public function complete_login()
 	{
-		if ( ! $this->_loaded)
+		if ($this->_loaded)
 		{
-			// nothing to do
-			return;
+			// Update the number of logins
+			$this->logins = new Database_Expression('logins + 1');
+
+			// Set the last login date
+			$this->last_login = time();
+
+			// Save the user
+			$this->update();
 		}
-
-		// Update the number of logins
-		$this->logins = new Database_Expression('logins + 1');
-
-		// Set the last login date
-		$this->last_login = time();
-
-		// Save the user
-		$this->save();
 	}
 
 	/**
 	 * Does the reverse of unique_key_exists() by triggering error if username exists.
 	 * Validation callback.
 	 *
-	 * @param   Validate  Validate object
-	 * @param   string    field name
+	 * @param   Validation  Validation object
+	 * @param   string      Field name
 	 * @return  void
 	 */
-	public function username_available(Validate $array, $field)
+	public function username_available(Validation $validation, $field)
 	{
-		if ($this->unique_key_exists($array[$field], 'username'))
+		if ($this->unique_key_exists($validation[$field], 'username'))
 		{
-			$array->error($field, 'username_available', array($array[$field]));
+			$validation->error($field, 'username_available', array($validation[$field]));
 		}
 	}
 
@@ -180,15 +101,15 @@ class Model_Auth_User extends ORM {
 	 * Does the reverse of unique_key_exists() by triggering error if email exists.
 	 * Validation callback.
 	 *
-	 * @param   Validate  Validate object
-	 * @param   string    field name
+	 * @param   Validation  Validation object
+	 * @param   string      Field name
 	 * @return  void
 	 */
-	public function email_available(Validate $array, $field)
+	public function email_available(Validation $validation, $field)
 	{
-		if ($this->unique_key_exists($array[$field], 'email'))
+		if ($this->unique_key_exists($validation[$field], 'email'))
 		{
-			$array->error($field, 'email_available', array($array[$field]));
+			$validation->error($field, 'email_available', array($validation[$field]));
 		}
 	}
 
@@ -223,22 +144,7 @@ class Model_Auth_User extends ORM {
 	 */
 	public function unique_key($value)
 	{
-		return Validate::email($value) ? 'email' : 'username';
-	}
-
-	/**
-	 * Saves the current object. Will hash password if it was changed.
-	 *
-	 * @return  ORM
-	 */
-	public function save()
-	{
-		if (array_key_exists('password', $this->_changed))
-		{
-			$this->_object['password'] = Auth::instance()->hash_password($this->_object['password']);
-		}
-
-		return parent::save();
+		return Valid::email($value) ? 'email' : 'username';
 	}
 
 } // End Auth User Model
