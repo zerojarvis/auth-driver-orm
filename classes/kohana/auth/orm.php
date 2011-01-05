@@ -81,13 +81,18 @@ class Kohana_Auth_ORM extends Auth {
 		{
 			if ($remember === TRUE)
 			{
-				// Create a new autologin token
-				$token = ORM::factory('user_token');
+				// Token data
+				$data = array(
+					'user_id'    => $user->id,
+					'expires'    => time() + $this->_config['lifetime'],
+					'user_agent' => Request::$user_agent,
+					'token'      => sha1($user->username.unique_id().time()),
+				);
 
-				// Set token data
-				$token->user_id = $user->id;
-				$token->expires = time() + $this->_config['lifetime'];
-				$token->save();
+				// Create a new autologin token
+				$token = ORM::factory('user_token')
+							->values($data)
+							->create();
 
 				// Set the autologin cookie
 				Cookie::set('authautologin', $token->token, $this->_config['lifetime']);

@@ -12,9 +12,6 @@ class Model_Auth_User_Token extends ORM {
 	// Relationships
 	protected $_belongs_to = array('user' => array());
 
-	// Current timestamp
-	protected $_now;
-
 	/**
 	 * Handles garbage collection and deleting of expired objects.
 	 *
@@ -33,41 +30,10 @@ class Model_Auth_User_Token extends ORM {
 			$this->delete_expired();
 		}
 
-		if ($this->expires < $this->_now AND $this->_loaded)
+		if ($this->expires < time() AND $this->_loaded)
 		{
 			// This object has expired
 			$this->delete();
-		}
-	}
-
-	/**
-	 * Overload saving to set the created time and to create a new token
-	 * when the object is saved.
-	 *
-	 * @return  ORM
-	 */
-	public function create(Validation $validation = NULL)
-	{
-		if ($this->loaded() === FALSE)
-		{
-			// Set the created time, token, and hash of the user agent
-			$this->created = $this->_now;
-			$this->user_agent = sha1(Request::$user_agent);
-		}
-
-		while (TRUE)
-		{
-			// Generate a new token
-			$this->token = $this->create_token();
-
-			try
-			{
-				return parent::create($validation);
-			}
-			catch (Kohana_Database_Exception $e)
-			{
-				// Collision occurred, token is not unique
-			}
 		}
 	}
 
@@ -80,22 +46,10 @@ class Model_Auth_User_Token extends ORM {
 	{
 		// Delete all expired tokens
 		DB::delete($this->_table_name)
-			->where('expires', '<', $this->_now)
+			->where('expires', '<', time())
 			->execute($this->_db);
 
 		return $this;
-	}
-
-	/**
-	 * Generate a new unique token.
-	 *
-	 * @return  string
-	 * @uses    Text::random
-	 */
-	protected function create_token()
-	{
-		// Create a random token
-		return Text::random('alnum', 32);
 	}
 
 } // End Auth User Token Model
