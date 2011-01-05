@@ -12,16 +12,18 @@ class Model_Auth_Role extends ORM {
 	// Relationships
 	protected $_has_many = array('users' => array('through' => 'roles_users'));
 
-	// Validation rules
-	protected $_rules = array(
-		'name' => array(
-			'not_empty'  => NULL,
-			'min_length' => array(4),
-			'max_length' => array(32),
-		),
-		'description' => array(
-			'max_length' => array(255),
-		),
-	);
+	public function rules()
+	{
+		return array(
+			'name' => array(
+				array('not_empty'),
+				array('min_length', array(':value', 4)),
+				array('max_length', array(':value', 32)),
+			)
+			'description' => array(
+				array('max_length', array(':value', 255)),
+			)
+		);
+	}
 
 } // End Auth Role Model

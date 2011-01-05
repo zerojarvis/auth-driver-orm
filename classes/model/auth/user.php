@@ -4,8 +4,8 @@
  *
  * @package    Kohana/Auth
  * @author     Kohana Team
- * @copyright  (c) 2007-2009 Kohana Team
- * @license    http://kohanaphp.com/license.html
+ * @copyright  (c) 2007-2011 Kohana Team
+ * @license    http://kohanaframework.org/license
  */
 class Model_Auth_User extends ORM {
 
@@ -27,8 +27,6 @@ class Model_Auth_User extends ORM {
 			),
 			'password' => array(
 				array('not_empty'),
-				array('min_length', array(':value', 5)),
-				array('max_length', array(':value', 42)),
 			),
 			'email' => array(
 				array('not_empty'),

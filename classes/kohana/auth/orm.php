@@ -4,67 +4,57 @@
  *
  * @package    Kohana/Auth
  * @author     Kohana Team
- * @copyright  (c) 2007-2008 Kohana Team
- * @license    http://kohanaphp.com/license.html
+ * @copyright  (c) 2007-2011 Kohana Team
+ * @license    http://kohanaframework.org/license
  */
 class Kohana_Auth_ORM extends Auth {
 
 	/**
 	 * Checks if a session is active.
 	 *
-	 * @param   mixed    role name string, role ORM object, or array with role names
+	 * @param   mixed    $role Role name string, role ORM object, or array with role names
 	 * @return  boolean
 	 */
 	public function logged_in($role = NULL)
 	{
-		$status = FALSE;
-
 		// Get the user from the session
 		$user = $this->get_user();
 
-		if (is_object($user) AND $user instanceof Model_User AND $user->loaded())
+		if ( ! $user)
+			return FALSE;
+
+		if ($user instanceof Model_User AND $user->loaded())
 		{
-			// Everything is okay so far
-			$status = TRUE;
+			// If we don't have a roll no further checking is needed
+			if ( ! $role)
+				return TRUE;
 
-			if ( ! empty($role))
+			if (is_array($role))
 			{
-				// Multiple roles to check
-				if (is_array($role))
-				{
-					// Check each role
-					foreach ($role as $_role)
-					{
-						if ( ! is_object($_role))
-						{
-							$_role = ORM::factory('role', array('name' => $_role));
-						}
+				// Get all the roles
+				$roles = ORM::factory('role')
+							->where('name', 'IN', $role)
+							->find_all()
+							->as_array(NULL, 'id');
 
-						// If the user doesn't have the role
-						if ( ! $user->has('roles', $_role))
-						{
-							// Set the status false and get outta here
-							$status = FALSE;
-							break;
-						}
-					}
-				}
-				// Single role to check
-				else
+				// Make sure all the roles are valid ones
+				if (count($roles) !== count($role))
+					return FALSE;
+			}
+			else
+			{
+				if ( ! is_object($role))
 				{
-					if ( ! is_object($role))
-					{
-						// Load the role
-						$role = ORM::factory('role', array('name' => $role));
-					}
+					// Load the role
+					$roles = ORM::factory('role', array('name' => $role));
 
-					// Check that the user has the given role
-					$status = $user->has('roles', $role);
+					if ( ! $roles->loaded())
+						return FALSE;
 				}
 			}
-		}
 
-		return $status;
+			return $user->has('roles', $roles);
+		}
 	}
 
 	/**
@@ -188,7 +178,7 @@ class Kohana_Auth_ORM extends Auth {
 	{
 		$user = parent::get_user();
 
-		if ($user === FALSE)
+		if ( ! $user)
 		{
 			// check for "remembered" login
 			$user = $this->auto_login();
@@ -274,15 +264,10 @@ class Kohana_Auth_ORM extends Auth {
 	{
 		$user = $this->get_user();
 
-		if ($user === FALSE)
-		{
-			// nothing to compare
+		if ( ! $user)
 			return FALSE;
-		}
 
-		$hash = $this->hash_password($password, $this->find_salt($user->password));
-
-		return $hash == $user->password;
+		return ($this->hash($password) === $user->password);
 	}
 
 } // End Auth ORM

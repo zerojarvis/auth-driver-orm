@@ -4,8 +4,8 @@
  *
  * @package    Kohana/Auth
  * @author     Kohana Team
- * @copyright  (c) 2007-2009 Kohana Team
- * @license    http://kohanaphp.com/license.html
+ * @copyright  (c) 2007-2011 Kohana Team
+ * @license    http://kohanaframework.org/license
  */
 class Model_Auth_User_Token extends ORM {
 
@@ -33,7 +33,7 @@ class Model_Auth_User_Token extends ORM {
 			$this->delete_expired();
 		}
 
-		if ($this->expires < $this->_now)
+		if ($this->expires < $this->_now AND $this->_loaded)
 		{
 			// This object has expired
 			$this->delete();
@@ -46,7 +46,7 @@ class Model_Auth_User_Token extends ORM {
 	 *
 	 * @return  ORM
 	 */
-	public function save()
+	public function create(Validation $validation = NULL)
 	{
 		if ($this->loaded() === FALSE)
 		{
@@ -62,7 +62,7 @@ class Model_Auth_User_Token extends ORM {
 
 			try
 			{
-				return parent::save();
+				return parent::create($validation);
 			}
 			catch (Kohana_Database_Exception $e)
 			{
