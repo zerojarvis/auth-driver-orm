@@ -19,7 +19,7 @@ class Model_Auth_Role extends ORM {
 				array('not_empty'),
 				array('min_length', array(':value', 4)),
 				array('max_length', array(':value', 32)),
-			)
+			),
 			'description' => array(
 				array('max_length', array(':value', 255)),
 			)
